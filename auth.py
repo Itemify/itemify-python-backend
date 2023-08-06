@@ -4,6 +4,7 @@ from fastapi import Security, HTTPException, status, Depends
 from pydantic import Json
 import psycopg2 as pg
 from psycopg2 import pool
+import os 
 
 server_url = "https://auth.baackfs.com/"
 token_url = server_url + "/realms/application-sso/protocol/openid-connect/token"
