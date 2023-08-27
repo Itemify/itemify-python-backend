@@ -34,6 +34,13 @@ class ItemifyStorage:
             print(f"filepath: {file_path} file_name: {file_name}")
             digitalocean.get_file(self.client, os.getenv('MINIO_BUCKET_NAME'), file_path, file_name)
 
+    def storeNormalFile(self, filename, file):
+        if self.provider == PROVIDER_MINIO:
+            self.client.fput_object(os.getenv('MINIO_BUCKET_NAME'), filename, file.fileno())
+
+        if self.provider == PROVIDER_DIGITALOCEAN:
+            digitalocean.upload_file_to_space(self.client, os.getenv('MINIO_BUCKET_NAME'), file, filename, is_public=True)
+
     def storeFile(self, filename, file):
         if self.provider == PROVIDER_MINIO:
             self.client.fput_object(os.getenv('MINIO_BUCKET_NAME'), filename, file.file.fileno())

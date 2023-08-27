@@ -13,6 +13,11 @@ import urllib.parse
 import requests
 from auth import get_auth
 import itemifystorage as istore
+import numpy
+from stl import mesh
+from mpl_toolkits import mplot3d
+from matplotlib import pyplot
+from matplotlib.colors import LightSource
 
 # This is your test secret API key.
 stripe.api_key = os.getenv('STRIPE_API_KEY')
@@ -91,6 +96,43 @@ def update_size_of_modell(id, file_path, file_name):
     return {"id": id, "x": x.item(), "y": y.item(), "z": z.item()}
 
 
+def plotSTLToPNG(filename):
+    # Create a new plot
+    figure = pyplot.figure(figsize=(20,20))
+    axes = figure.add_subplot(111, projection='3d')
+
+    # Load the STL mesh
+    stlmesh = mesh.Mesh.from_file(filename)
+    polymesh = mplot3d.art3d.Poly3DCollection(stlmesh.vectors)
+
+    # Create light source
+    ls = LightSource(azdeg=225, altdeg=45)
+
+    # Darkest shadowed surface, in rgba
+    dk = numpy.array([66/255, 4/255, 126/255, 1])
+    # Brightest lit surface, in rgba
+    lt = numpy.array([7/255, 244/255, 158/255, 1])
+    # Interpolate between the two, based on face normal
+    shade = lambda s: (lt-dk) * s + dk
+
+    # Set face colors 
+    sns = ls.shade_normals(stlmesh.get_unit_normals(), fraction=1.0)
+    rgba = numpy.array([shade(s) for s in sns])
+    polymesh.set_facecolor(rgba)
+
+    axes.add_collection3d(polymesh)
+
+    # Adjust limits of axes to fill the mesh, but keep 1:1:1 aspect ratio
+    pts = stlmesh.points.reshape(-1,3)
+    ptp = max(numpy.ptp(pts, 0))/2
+    ctrs = [(min(pts[:,i]) + max(pts[:,i]))/2 for i in range(3)]
+    lims = [[ctrs[i] - ptp, ctrs[i] + ptp] for i in range(3)]
+    axes.auto_scale_xyz(*lims)
+    axes.set_axis_off()
+    
+    pyplot.savefig(filename + ".png", bbox_inches='tight')
+
+
 @app.post("/files/")
 async def create_file(file: UploadFile, is_image: bool = Form(...), model_id: int = Form(...), token=Depends(get_auth)):
     print(token)
@@ -100,6 +142,10 @@ async def create_file(file: UploadFile, is_image: bool = Form(...), model_id: in
         cursor.execute(SQL_EXEC_INSERT_IMAGE, (model_id, filename))
         conn.commit()
         record = model_id
+
+        print(filename, flush=True)
+        storage.storeFile(filename, file)
+
     else:
         model_exist = model_id != -1
 
@@ -112,12 +158,24 @@ async def create_file(file: UploadFile, is_image: bool = Form(...), model_id: in
 
         filename = str(model_id) + "/" + file.filename
 
+
+        # generate a png of the model
+        outPNG_Name = f"{model_id}_{file.filename}"
+
+        with open(outPNG_Name, "wb+") as file_object:
+            file_object.write(file.file.read())
+
+        with open(outPNG_Name, "rb+") as file_object:
+            storage.storeNormalFile(filename, file_object)
+
+        plotSTLToPNG(outPNG_Name)
+
+        with open(outPNG_Name + ".png", "rb+") as img:
+            storage.storeNormalFile(str(model_id) + "/img/" + file.filename + ".png", img)
+
         if model_exist:
             cursor.execute(SQL_EXEC_INSERT_ITEM, (model_id, file.filename, filename))
             conn.commit()
-
-    print(filename, flush=True)
-    storage.storeFile(filename, file)
 
     if not is_image and model_exist:
         update_size_of_modell(model_id, filename, file.filename)
