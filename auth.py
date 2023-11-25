@@ -62,8 +62,6 @@ async def get_auth(token: str = Security(oauth2_scheme)) -> Json:
 
         threaded_postgreSQL_pool.putconn(conn)
 
-        print(decoded)
-
         return decoded
 
     except Exception as e:

@@ -67,13 +67,13 @@ SQL_PREP_INSERT_IMAGE = """
 
 SQL_PREP_INSERT_ITEM = """
     PREPARE insert_item (int, text, text) AS
-        INSERT INTO item_files(item_id, file_name, file_type, file_path, license_name) 
-            VALUES($1, $2, 'item', $3, (SELECT license_name FROM items WHERE item_id = $1))
+        INSERT INTO item_files(item_id, file_name, file_type, file_path, license_name, render_image) 
+            VALUES($1, $2, 'item', $3, (SELECT license_name FROM items WHERE item_id = $1), $4)
         ON CONFLICT DO NOTHING;
 """
 
 SQL_EXEC_INSERT_IMAGE = "EXECUTE insert_image (%s, %s)"
-SQL_EXEC_INSERT_ITEM = "EXECUTE insert_item (%s, %s, %s)"
+SQL_EXEC_INSERT_ITEM = "EXECUTE insert_item (%s, %s, %s, %s)"
 cursor.execute(SQL_PREP_INSERT_IMAGE)
 cursor.execute(SQL_PREP_INSERT_ITEM)
 
@@ -89,8 +89,8 @@ def update_size_of_modell(id, file_path, file_name):
 
     os.remove("./" + file_name)
 
-    rqst_path = os.getenv("CURA_DOMAIN") + "/hooks/calculate-print-size?file=" + urllib.parse.quote(file_path)
-
+    rqst_path = os.getenv("CURA_DOMAIN") + "/hooks/calculate-print-size?file=" + file_path
+    print(rqst_path, flush=True)
     requests.get(rqst_path)
 
     return {"id": id, "x": x.item(), "y": y.item(), "z": z.item()}
@@ -135,15 +135,12 @@ def plotSTLToPNG(filename):
 
 @app.post("/files/")
 async def create_file(file: UploadFile, is_image: bool = Form(...), model_id: int = Form(...), token=Depends(get_auth)):
-    print(token)
-
     if is_image:
         filename = str(model_id) + "/img/" + file.filename
         cursor.execute(SQL_EXEC_INSERT_IMAGE, (model_id, filename))
         conn.commit()
         record = model_id
 
-        print(filename, flush=True)
         storage.storeFile(filename, file)
 
     else:
@@ -174,7 +171,7 @@ async def create_file(file: UploadFile, is_image: bool = Form(...), model_id: in
             storage.storeNormalFile(str(model_id) + "/img/" + file.filename + ".png", img)
 
         if model_exist:
-            cursor.execute(SQL_EXEC_INSERT_ITEM, (model_id, file.filename, filename))
+            cursor.execute(SQL_EXEC_INSERT_ITEM, (model_id, file.filename, filename, str(model_id) + "/img/" + file.filename + ".png"))
             conn.commit()
 
     if not is_image and model_exist:

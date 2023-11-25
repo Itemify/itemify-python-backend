@@ -2,6 +2,8 @@ import boto3
 import mimetypes
 import filetype
 import os
+import requests
+import shutil
 
 def get_spaces_client(**kwargs):
     """
@@ -27,8 +29,11 @@ def get_file(spaces_client, bucket,  objectname, filename):
     print("Before Download: ")
     print(os.listdir("."))
     print(bucket, objectname, filename)
+    
+    url=f"https://{bucket}.fra1.digitaloceanspaces.com/{objectname}"
+    response = requests.get(url, stream=True)
     with open(filename, 'wb') as data:
-        spaces_client.download_fileobj(bucket, objectname, data)
+        shutil.copyfileobj(response.raw, data)
     
     print("After Download:")
     print(os.listdir("."))
