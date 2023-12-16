@@ -15,5 +15,6 @@ easypost~=7.4.0
 python-keycloak
 boto3
 filetype
+kafka-python
 numpy-stl
 matplotlib
