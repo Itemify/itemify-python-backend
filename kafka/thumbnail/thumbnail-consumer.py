@@ -47,7 +47,7 @@ def plotSTLToPNG(filename):
     axes.auto_scale_xyz(*lims)
     axes.set_axis_off()
 
-    pyplot.savefig(filename + ".png", bbox_inches='tight')
+    pyplot.savefig(os.getenv("FILE_PATH") + filename + ".png", bbox_inches='tight')
 
 
 for message in consumer:
